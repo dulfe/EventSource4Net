@@ -6,17 +6,18 @@ using System.Net;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace EventSource4Net
 {
     public class EventSource
     {
-        private static readonly slf4net.ILogger _logger = slf4net.LoggerFactory.GetLogger(typeof(EventSource));
+        private ILogger _logger;
 
         public event EventHandler<StateChangedEventArgs> StateChanged;
         public event EventHandler<ServerSentEventReceivedEventArgs> EventReceived;
 
-        private IWebRequesterFactory _webRequesterFactory = new WebRequesterFactory();
+        private readonly IWebRequesterFactory _webRequesterFactory = new WebRequesterFactory();
         private int _timeout = 0;
         public Uri Url { get; private set; }
         public EventSourceState State { get { return CurrentState.State; } }
@@ -35,7 +36,7 @@ namespace EventSource4Net
                     sb.Append(mCurrentState == null ? "Unknown" : mCurrentState.State.ToString());
                     sb.Append(" to ");
                     sb.Append(value == null ? "Unknown" : value.State.ToString());
-                    _logger.Trace(sb.ToString());
+                    _logger?.LogTrace(sb.ToString());
                     mCurrentState = value;
                     OnStateChanged(mCurrentState.State);
                 }
@@ -44,25 +45,37 @@ namespace EventSource4Net
 
         public EventSource(Uri url, int timeout)
         {
-            Initialize(url, timeout);
+            Initialize(url, timeout, null);
+        }
+
+        public EventSource(Uri url, int timeout, ILogger logger)
+        {
+            Initialize(url, timeout, logger);
+        }
+
+        protected EventSource(Uri url, IWebRequesterFactory factory)
+        {
+            _webRequesterFactory = factory;
+            Initialize(url, 0, null);
         }
 
         /// <summary>
         /// Constructor for testing purposes
         /// </summary>
         /// <param name="factory">The factory that generates the WebRequester to use.</param>
-        protected EventSource(Uri url, IWebRequesterFactory factory)
+        protected EventSource(Uri url, IWebRequesterFactory factory, ILogger logger)
         {
             _webRequesterFactory = factory;
-            Initialize(url, 0);
+            Initialize(url, 0, logger);
         }
 
-        private void Initialize(Uri url, int timeout)
+        private void Initialize(Uri url, int timeout, ILogger logger)
         {
             _timeout = timeout;
             Url = url;
-            CurrentState = new DisconnectedState(Url,_webRequesterFactory);
-            _logger.Info("EventSource created for " + url.ToString());
+            CurrentState = new DisconnectedState(Url, _webRequesterFactory);
+            _logger = logger;
+            _logger?.LogInformation("EventSource created for " + url.ToString());
         }
 
 
@@ -94,18 +107,12 @@ namespace EventSource4Net
 
         protected void OnEventReceived(ServerSentEvent sse)
         {
-            if (EventReceived != null)
-            {
-                EventReceived(this, new ServerSentEventReceivedEventArgs(sse));
-            }
+            EventReceived?.Invoke(this, new ServerSentEventReceivedEventArgs(sse));
         }
 
         protected void OnStateChanged(EventSourceState newState)
         {
-            if (StateChanged != null)
-            {
-                StateChanged(this, new StateChangedEventArgs(newState));
-            }
+            StateChanged?.Invoke(this, new StateChangedEventArgs(newState));
         }
     }
 }

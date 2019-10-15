@@ -33,6 +33,7 @@ namespace EventSource4Net
         public Watchdog(long timeout)
         {
             if (timeout < 1) throw new ArgumentOutOfRangeException("timeout", "timeout muste be greater than zero.");
+            _timeout = timeout;
         }
     }
 }

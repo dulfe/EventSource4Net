@@ -6,23 +6,26 @@ using System.Net;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace EventSource4Net
 {
     class ConnectedState : IConnectionState
     {
-        private static readonly slf4net.ILogger _logger = slf4net.LoggerFactory.GetLogger(typeof(ConnectedState));
-
+        private ILogger _logger;
         private IWebRequesterFactory mWebRequesterFactory;
         private ServerSentEvent mSse = null;
-        private string mRemainingText = string.Empty;   // the text that is not ended with a lineending char is saved for next call.
+        private string mRemainingText = string.Empty;   // the text that is not ended with a line ending char is saved for next call.
         private IServerResponse mResponse;
         public EventSourceState State { get { return EventSourceState.OPEN; } }
 
-        public ConnectedState(IServerResponse response, IWebRequesterFactory webRequesterFactory)
+        public ConnectedState(IServerResponse response, IWebRequesterFactory webRequesterFactory) : this(response, webRequesterFactory, null) { }
+
+        public ConnectedState(IServerResponse response, IWebRequesterFactory webRequesterFactory, ILogger logger)
         {
             mResponse = response;
             mWebRequesterFactory = webRequesterFactory;
+            _logger = logger;
         }
 
         public Task<IConnectionState> Run(Action<ServerSentEvent> msgReceived, CancellationToken cancelToken)
@@ -45,7 +48,7 @@ namespace EventSource4Net
                         }
                         catch (Exception ex)
                         {
-                            _logger.Trace(ex, "ConnectedState.Run");
+                            _logger?.LogTrace(ex, "ConnectedState.Run");
                         }
                         if (!cancelToken.IsCancellationRequested)
                         {
@@ -63,14 +66,14 @@ namespace EventSource4Net
                                     // Dispatch message if empty lne
                                     if (string.IsNullOrEmpty(line.Trim()) && mSse != null)
                                     {
-                                        _logger.Trace("Message received");
+                                        _logger?.LogTrace("Message received");
                                         msgReceived(mSse);
                                         mSse = null;
                                     }
                                     else if (line.StartsWith(":"))
                                     {
                                         // This a comment, just log it.
-                                        _logger.Trace("A comment was received: " + line);
+                                        _logger?.LogTrace("A comment was received: " + line);
                                     }
                                     else
                                     {
@@ -112,7 +115,7 @@ namespace EventSource4Net
                                         else
                                         {
                                             // Ignore this, just log it
-                                            _logger.Warn("A unknown line was received: " + line);
+                                            _logger?.LogWarning("A unknown line was received: " + line);
                                         }
                                     }
                                 }
@@ -122,7 +125,7 @@ namespace EventSource4Net
                             }
                             else // end of the stream reached
                             {
-                                _logger.Trace("No bytes read. End of stream.");
+                                _logger?.LogTrace("No bytes read. End of stream.");
                             }
                         }
 

@@ -6,23 +6,28 @@ using System.Threading.Tasks;
 using System.Net;
 using System.IO;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 
 namespace EventSource4Net
 {
     class ConnectingState : IConnectionState
     {
-        private static readonly slf4net.ILogger _logger = slf4net.LoggerFactory.GetLogger(typeof(ConnectingState));
+        private ILogger _logger;
 
         private Uri mUrl;
         private IWebRequesterFactory mWebRequesterFactory;
         public EventSourceState State { get { return EventSourceState.CONNECTING; } }
-        
-        public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory)
+
+        public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory) : this(url, webRequesterFactory, null) { }
+
+
+        public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory, ILogger logger)
         {
             if (url == null) throw new ArgumentNullException("Url cant be null");
             if (webRequesterFactory == null) throw new ArgumentNullException("Factory cant be null");
             mUrl = url;
             mWebRequesterFactory = webRequesterFactory;
+            _logger = logger;
         }
 
         public Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
@@ -30,7 +35,7 @@ namespace EventSource4Net
             IWebRequester requester = mWebRequesterFactory.Create();
             var taskResp = requester.Get(mUrl);
 
-            return taskResp.ContinueWith<IConnectionState>(tsk => 
+            return taskResp.ContinueWith<IConnectionState>(tsk =>
             {
                 if (tsk.Status == TaskStatus.RanToCompletion && !cancelToken.IsCancellationRequested)
                 {
@@ -41,7 +46,7 @@ namespace EventSource4Net
                     }
                     else
                     {
-                        _logger.Info("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
+                        _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
                     }
                 }
 
