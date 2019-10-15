@@ -20,7 +20,7 @@ namespace EventSource4Net
         private readonly IWebRequesterFactory _webRequesterFactory = new WebRequesterFactory();
         private int _timeout = 0;
         public Uri Url { get; private set; }
-        public EventSourceState State { get { return CurrentState.State; } }
+        //public EventSourceState State { get { return CurrentState.State; } }
         public string LastEventId { get; private set; }
         private IConnectionState mCurrentState = null;
         private CancellationToken mStopToken;
@@ -83,26 +83,38 @@ namespace EventSource4Net
         /// Start the EventSource. 
         /// </summary>
         /// <param name="stopToken">Cancel this token to stop the EventSource.</param>
-        public void Start(CancellationToken stopToken)
+        public Task Start(CancellationToken stopToken)
         {
-            if (State == EventSourceState.CLOSED)
+            return Task.Run(async () =>
             {
-                mStopToken = stopToken;
-                mTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
-                Run();
-            }
+                if (CurrentState.State == EventSourceState.CLOSED)
+                {
+                    mStopToken = stopToken;
+                    mTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
+                    //await Run().ConfigureAwait(false);
+
+                    while (!stopToken.IsCancellationRequested)
+                    {
+                        await Run().ConfigureAwait(false);
+                    }
+                }
+            }, stopToken);
         }
 
-        protected void Run()
+        protected async Task Run()
         {
             if (mTokenSource.IsCancellationRequested && CurrentState.State == EventSourceState.CLOSED)
                 return;
 
-            mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ContinueWith(cs =>
-            {
-                CurrentState = cs.Result;
-                Run();
-            });
+            //mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ContinueWith(cs =>
+            //{
+            //    CurrentState = cs.Result;
+            //    await Run();
+            //});
+
+            CurrentState = await mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ConfigureAwait(false);
+
+            //await Run().ConfigureAwait(false);
         }
 
         protected void OnEventReceived(ServerSentEvent sse)

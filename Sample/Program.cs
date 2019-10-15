@@ -17,6 +17,7 @@ namespace Sample
             var loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(LogLevel.Trace);
+                builder.AddDebug();
                 builder.AddConsole();
             }
             );
@@ -42,6 +43,8 @@ namespace Sample
                     es.Start(cts.Token);
                 }
             }
+
+            Console.ReadKey();
         }
 
     }

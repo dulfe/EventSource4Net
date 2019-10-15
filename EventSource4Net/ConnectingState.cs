@@ -30,28 +30,43 @@ namespace EventSource4Net
             _logger = logger;
         }
 
-        public Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
+        public async Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
         {
             IWebRequester requester = mWebRequesterFactory.Create();
-            var taskResp = requester.Get(mUrl);
+            var taskResp = await requester.Get(mUrl);
 
-            return taskResp.ContinueWith<IConnectionState>(tsk =>
+            //return taskResp.ContinueWith<IConnectionState>(tsk =>
+            //{
+            //    if (tsk.Status == TaskStatus.RanToCompletion && !cancelToken.IsCancellationRequested)
+            //    {
+            //        IServerResponse response = tsk.Result;
+            //        if (response.StatusCode == HttpStatusCode.OK)
+            //        {
+            //            return new ConnectedState(response, mWebRequesterFactory);
+            //        }
+            //        else
+            //        {
+            //            _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
+            //        }
+            //    }
+
+            //    return new DisconnectedState(mUrl, mWebRequesterFactory);
+            //});
+
+            if (!cancelToken.IsCancellationRequested)
             {
-                if (tsk.Status == TaskStatus.RanToCompletion && !cancelToken.IsCancellationRequested)
+                IServerResponse response = taskResp;
+                if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    IServerResponse response = tsk.Result;
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        return new ConnectedState(response, mWebRequesterFactory);
-                    }
-                    else
-                    {
-                        _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
-                    }
+                    return new ConnectedState(response, mWebRequesterFactory);
                 }
+                else
+                {
+                    _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
+                }
+            }
 
-                return new DisconnectedState(mUrl, mWebRequesterFactory);
-            });
+            return new DisconnectedState(mUrl, mWebRequesterFactory);
         }
     }
 }

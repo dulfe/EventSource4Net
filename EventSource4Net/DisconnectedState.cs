@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EventSource4Net
 {
-    class DisconnectedState : IConnectionState 
+    class DisconnectedState : IConnectionState
     {
         private Uri mUrl;
         private IWebRequesterFactory mWebRequesterFactory;
@@ -23,12 +23,17 @@ namespace EventSource4Net
             mWebRequesterFactory = webRequesterFactory;
         }
 
-        public Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
+        public async Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
         {
-            if(cancelToken.IsCancellationRequested)
-                return Task.Factory.StartNew<IConnectionState>(() => { return new DisconnectedState(mUrl, mWebRequesterFactory); });
+            //if(cancelToken.IsCancellationRequested)
+            //    return Task.Factory.StartNew<IConnectionState>(() => { return new DisconnectedState(mUrl, mWebRequesterFactory); });
+            //else
+            //    return Task.Factory.StartNew<IConnectionState>(() => { return new ConnectingState(mUrl, mWebRequesterFactory); });
+
+            if (cancelToken.IsCancellationRequested)
+                return await Task.FromResult<IConnectionState>(new DisconnectedState(mUrl, mWebRequesterFactory)).ConfigureAwait(false);
             else
-                return Task.Factory.StartNew<IConnectionState>(() => { return new ConnectingState(mUrl, mWebRequesterFactory); });
+                return await Task.FromResult<IConnectionState>(new ConnectingState(mUrl, mWebRequesterFactory)).ConfigureAwait(false);
         }
     }
 }
