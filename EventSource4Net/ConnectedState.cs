@@ -90,8 +90,7 @@ namespace EventSource4Net
                             else if (String.Compare(fieldName, "data", true) == 0)
                             {
                                 mSse = mSse ?? new ServerSentEvent();
-                                //mSse.Data = fieldValue + '\n';
-                                mSse.Data = fieldValue;
+                                mSse.Data = fieldValue + '\n';
                             }
                             else if (String.Compare(fieldName, "id", true) == 0)
                             {
