@@ -26,7 +26,7 @@ namespace EventSource4Net
                     if (!isCRLFPair)
                     {
                         string line = text.Substring(i - lineLength, lineLength);
-                        lines.Add(line);
+                        lines.Add(line.Trim());
                     }
 
                     lineLength = 0;

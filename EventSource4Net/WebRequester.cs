@@ -2,24 +2,25 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace EventSource4Net
 {
     class WebRequester : IWebRequester
     {
-        public Task<IServerResponse> Get(Uri url)
+        readonly HttpClient _httpClient;
+        public WebRequester(HttpClient httpClient)
         {
-            var wreq = (HttpWebRequest)WebRequest.Create(url);
-            wreq.Method = "GET";
-            wreq.Proxy = null;
+            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient), $"{nameof(httpClient)} is null.");
+        }
+        public async Task<IServerResponse> Get(Uri url, CancellationToken cancellationToken)
+        {
+            var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
-            var taskResp = Task.Factory.FromAsync<WebResponse>(wreq.BeginGetResponse,
-                                                            wreq.EndGetResponse,
-                                                            null).ContinueWith<IServerResponse>(t => new ServerResponse(t.Result));
-            return taskResp;
-
+            return new ServerResponse(response);
         }
     }
 }

@@ -13,6 +13,7 @@ namespace EventSource4Net
     class ConnectingState : IConnectionState
     {
         private ILogger _logger;
+        private ILoggerFactory _loggerFactory;
 
         private Uri mUrl;
         private IWebRequesterFactory mWebRequesterFactory;
@@ -21,52 +22,40 @@ namespace EventSource4Net
         public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory) : this(url, webRequesterFactory, null) { }
 
 
-        public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory, ILogger logger)
+        public ConnectingState(Uri url, IWebRequesterFactory webRequesterFactory, ILoggerFactory loggerFactory)
         {
             if (url == null) throw new ArgumentNullException("Url cant be null");
             if (webRequesterFactory == null) throw new ArgumentNullException("Factory cant be null");
             mUrl = url;
             mWebRequesterFactory = webRequesterFactory;
-            _logger = logger;
+            _loggerFactory = loggerFactory;
+            _logger = _loggerFactory?.CreateLogger<ConnectingState>();
         }
 
         public async Task<IConnectionState> Run(Action<ServerSentEvent> donothing, CancellationToken cancelToken)
         {
             IWebRequester requester = mWebRequesterFactory.Create();
-            var taskResp = await requester.Get(mUrl);
-
-            //return taskResp.ContinueWith<IConnectionState>(tsk =>
-            //{
-            //    if (tsk.Status == TaskStatus.RanToCompletion && !cancelToken.IsCancellationRequested)
-            //    {
-            //        IServerResponse response = tsk.Result;
-            //        if (response.StatusCode == HttpStatusCode.OK)
-            //        {
-            //            return new ConnectedState(response, mWebRequesterFactory);
-            //        }
-            //        else
-            //        {
-            //            _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
-            //        }
-            //    }
-
-            //    return new DisconnectedState(mUrl, mWebRequesterFactory);
-            //});
+            var taskResp = await requester.Get(mUrl, cancelToken);
 
             if (!cancelToken.IsCancellationRequested)
             {
                 IServerResponse response = taskResp;
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    return new ConnectedState(response, mWebRequesterFactory);
+                    return new ConnectedState(response, mWebRequesterFactory, _loggerFactory);
                 }
                 else
                 {
                     _logger?.LogInformation("Failed to connect to: " + mUrl.ToString() + response ?? (" Http statuscode: " + response.StatusCode));
                 }
             }
+            else
+            {
+                taskResp.Dispose();
+                taskResp = null;
+            }
 
-            return new DisconnectedState(mUrl, mWebRequesterFactory);
+            return new DisconnectedState(mUrl, mWebRequesterFactory, _loggerFactory);
         }
     }
 }
