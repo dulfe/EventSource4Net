@@ -15,11 +15,27 @@ namespace EventSource4Net
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("EventType: ").Append(EventType).AppendLine();
-            sb.Append("Data: ").Append(Data).AppendLine();
-            sb.Append("LastEventId: ").Append(LastEventId).AppendLine();
-            if(Retry.HasValue)
-                sb.Append("Retry: ").Append(Retry.Value).AppendLine();
+            if (!String.IsNullOrWhiteSpace(EventType))
+                sb.Append("EventType: ").Append(EventType);
+
+            if (!String.IsNullOrWhiteSpace(Data))
+            {
+                if (sb.Length > 0) sb.AppendLine();
+                sb.Append("Data: ").Append(Data);
+            }
+
+            if (!String.IsNullOrWhiteSpace(LastEventId))
+            {
+                if (sb.Length > 0) sb.AppendLine();
+                sb.Append("LastEventId: ").Append(LastEventId);
+            }
+
+            if (Retry.HasValue)
+            {
+                if (sb.Length > 0) sb.AppendLine();
+                sb.Append("Retry: ").Append(Retry.Value.ToString());
+            }
+
             return sb.ToString();
         }
     }

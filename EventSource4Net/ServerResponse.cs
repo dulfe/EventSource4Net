@@ -2,17 +2,47 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace EventSource4Net
 {
-    class ServerResponse : IServerResponse
+    class ServerResponse : IServerResponse, IDisposable
     {
-        private System.Net.HttpWebResponse mHttpResponse;
+        #region IDisposable
+        private bool _disposed;
 
-        public ServerResponse(System.Net.WebResponse webResponse)
+        public void Dispose()
         {
-            this.mHttpResponse = webResponse as HttpWebResponse;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    if (mHttpResponse != null)
+                        mHttpResponse.Dispose();
+                }
+            }
+            _disposed = true;
+        }
+
+        ~ServerResponse()
+        {
+            Dispose(false);
+        }
+        #endregion
+
+        private HttpResponseMessage mHttpResponse;
+
+        public ServerResponse(HttpResponseMessage webResponse)
+        {
+            this.mHttpResponse = webResponse;
         }
 
         public HttpStatusCode StatusCode
@@ -23,16 +53,16 @@ namespace EventSource4Net
             }
         }
 
-        public System.IO.Stream GetResponseStream()
+        public Task<System.IO.Stream> GetResponseStream()
         {
-            return mHttpResponse.GetResponseStream();
+            return mHttpResponse.Content.ReadAsStreamAsync();
         }
 
         public Uri ResponseUri
         {
             get
             {
-                return mHttpResponse.ResponseUri;
+                return mHttpResponse.RequestMessage.RequestUri;
             }
         }
     }

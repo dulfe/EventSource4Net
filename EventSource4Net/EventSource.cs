@@ -13,6 +13,7 @@ namespace EventSource4Net
     public class EventSource
     {
         private ILogger _logger;
+        private ILoggerFactory _loggerFactory;
 
         public event EventHandler<StateChangedEventArgs> StateChanged;
         public event EventHandler<ServerSentEventReceivedEventArgs> EventReceived;
@@ -20,11 +21,11 @@ namespace EventSource4Net
         private readonly IWebRequesterFactory _webRequesterFactory = new WebRequesterFactory();
         private int _timeout = 0;
         public Uri Url { get; private set; }
-        public EventSourceState State { get { return CurrentState.State; } }
+        //public EventSourceState State { get { return CurrentState.State; } }
         public string LastEventId { get; private set; }
         private IConnectionState mCurrentState = null;
         private CancellationToken mStopToken;
-        private CancellationTokenSource mTokenSource = new CancellationTokenSource();
+        //private CancellationTokenSource mTokenSource = new CancellationTokenSource();
         private IConnectionState CurrentState
         {
             get { return mCurrentState; }
@@ -48,9 +49,9 @@ namespace EventSource4Net
             Initialize(url, timeout, null);
         }
 
-        public EventSource(Uri url, int timeout, ILogger logger)
+        public EventSource(Uri url, int timeout, ILoggerFactory loggerFactory)
         {
-            Initialize(url, timeout, logger);
+            Initialize(url, timeout, loggerFactory);
         }
 
         protected EventSource(Uri url, IWebRequesterFactory factory)
@@ -63,18 +64,19 @@ namespace EventSource4Net
         /// Constructor for testing purposes
         /// </summary>
         /// <param name="factory">The factory that generates the WebRequester to use.</param>
-        protected EventSource(Uri url, IWebRequesterFactory factory, ILogger logger)
+        protected EventSource(Uri url, IWebRequesterFactory factory, ILoggerFactory loggerFactory)
         {
             _webRequesterFactory = factory;
-            Initialize(url, 0, logger);
+            Initialize(url, 0, loggerFactory);
         }
 
-        private void Initialize(Uri url, int timeout, ILogger logger)
+        private void Initialize(Uri url, int timeout, ILoggerFactory loggerFactory)
         {
             _timeout = timeout;
             Url = url;
-            CurrentState = new DisconnectedState(Url, _webRequesterFactory);
-            _logger = logger;
+            _loggerFactory = loggerFactory;
+            CurrentState = new DisconnectedState(Url, _webRequesterFactory, _loggerFactory);
+            _logger = _loggerFactory?.CreateLogger<EventSource>();
             _logger?.LogInformation("EventSource created for " + url.ToString());
         }
 
@@ -83,26 +85,39 @@ namespace EventSource4Net
         /// Start the EventSource. 
         /// </summary>
         /// <param name="stopToken">Cancel this token to stop the EventSource.</param>
-        public void Start(CancellationToken stopToken)
+        public Task Start(CancellationToken stopToken)
         {
-            if (State == EventSourceState.CLOSED)
+            mStopToken = stopToken;
+            return Task.Run(async () =>
             {
-                mStopToken = stopToken;
-                mTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
-                Run();
-            }
+                if (CurrentState.State == EventSourceState.CLOSED)
+                {
+                    //mStopToken = stopToken;
+                    //mTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
+                    //await Run().ConfigureAwait(false);
+
+                    while (!stopToken.IsCancellationRequested)
+                    {
+                        await Run().ConfigureAwait(false);
+                    }
+                }
+            }, mStopToken);
         }
 
-        protected void Run()
+        protected async Task Run()
         {
-            if (mTokenSource.IsCancellationRequested && CurrentState.State == EventSourceState.CLOSED)
+            if (mStopToken.IsCancellationRequested && CurrentState.State == EventSourceState.CLOSED)
                 return;
 
-            mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ContinueWith(cs =>
-            {
-                CurrentState = cs.Result;
-                Run();
-            });
+            //mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ContinueWith(cs =>
+            //{
+            //    CurrentState = cs.Result;
+            //    await Run();
+            //});
+
+            CurrentState = await mCurrentState.Run(this.OnEventReceived, mStopToken).ConfigureAwait(false);
+
+            //await Run().ConfigureAwait(false);
         }
 
         protected void OnEventReceived(ServerSentEvent sse)

@@ -36,7 +36,7 @@ namespace EventSource4Net.Test
             this.Response = response;
         }
 
-        public System.Threading.Tasks.Task<IServerResponse> Get(Uri url)
+        public System.Threading.Tasks.Task<IServerResponse> Get(Uri url, CancellationToken token)
         {
             return Task.Factory.StartNew<IServerResponse>(() =>
             {
@@ -48,6 +48,35 @@ namespace EventSource4Net.Test
 
     class ServiceResponseMock : IServerResponse
     {
+        #region IDisposable
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    if (mStream != null)
+                        mStream.Dispose();
+                    if (mStreamWriter != null)
+                        mStreamWriter.Dispose();
+                }
+            }
+            _disposed = true;
+        }
+
+        ~ServiceResponseMock()
+        {
+            Dispose(false);
+        }
+        #endregion
         private Stream mStream;
         private StreamWriter mStreamWriter;
         private Uri mUrl;
@@ -72,9 +101,9 @@ namespace EventSource4Net.Test
             }
         }
 
-        public System.IO.Stream GetResponseStream()
+        public Task<System.IO.Stream> GetResponseStream()
         {
-            return mStream;
+            return Task.FromResult(mStream);
         }
 
         public Uri ResponseUri
