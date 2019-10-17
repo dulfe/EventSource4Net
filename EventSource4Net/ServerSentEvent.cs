@@ -21,7 +21,7 @@ namespace EventSource4Net
             if (!String.IsNullOrWhiteSpace(Data))
             {
                 if (sb.Length > 0) sb.AppendLine();
-                sb.Append("Data: ").Append(Data);
+                sb.Append("Data: ").Append(Data.Remove(Data.Length-1));
             }
 
             if (!String.IsNullOrWhiteSpace(LastEventId))

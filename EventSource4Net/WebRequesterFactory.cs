@@ -15,12 +15,7 @@ namespace EventSource4Net
 
         public WebRequesterFactory(HttpClient httpClient)
         {
-            if (httpClient == null)
-            {
-                httpClient = new HttpClient();
-            }
-
-            _httpClient = httpClient;
+            _httpClient = httpClient ?? new HttpClient();
         }
         public IWebRequester Create()
         {

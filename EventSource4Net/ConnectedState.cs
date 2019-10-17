@@ -10,14 +10,43 @@ using Microsoft.Extensions.Logging;
 
 namespace EventSource4Net
 {
-    class ConnectedState : IConnectionState
+    class ConnectedState : IConnectionState, IDisposable
     {
+        #region IDisposable
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            // Cleaning after ourselves JUST IN CASE the mResponse still open.
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    if (mResponse != null)
+                        mResponse.Dispose();
+                }
+            }
+            _disposed = true;
+        }
+
+        ~ConnectedState()
+        {
+            Dispose(false);
+        }
+        #endregion
         private ILogger _logger;
         private ILoggerFactory _loggerFactory;
         private IWebRequesterFactory mWebRequesterFactory;
         private ServerSentEvent mSse = null;
         private string mRemainingText = string.Empty;   // the text that is not ended with a line ending char is saved for next call.
         private IServerResponse mResponse;
+        private Uri mUri;
         public EventSourceState State { get { return EventSourceState.OPEN; } }
 
         public ConnectedState(IServerResponse response, IWebRequesterFactory webRequesterFactory) : this(response, webRequesterFactory, null) { }
@@ -25,6 +54,7 @@ namespace EventSource4Net
         public ConnectedState(IServerResponse response, IWebRequesterFactory webRequesterFactory, ILoggerFactory loggerFactory)
         {
             mResponse = response;
+            mUri = mResponse.ResponseUri;
             mWebRequesterFactory = webRequesterFactory;
             _loggerFactory = loggerFactory;
             _logger = loggerFactory?.CreateLogger<ConnectedState>();
@@ -32,6 +62,10 @@ namespace EventSource4Net
 
         public async Task<IConnectionState> Run(Action<ServerSentEvent> msgReceived, CancellationToken cancelToken)
         {
+            // This should not happen, but just in case we check!
+            if (mResponse == null)
+                throw new InvalidOperationException("Current Response was supposed to be opened.");
+
             var stream = await mResponse.GetResponseStream();
 
             byte[] buffer = new byte[1024 * 8];
@@ -127,11 +161,14 @@ namespace EventSource4Net
                 // Closing stream
                 stream.Dispose();
                 stream.Close();
+                // Making sure the response is closed
+                mResponse.Dispose();
+                mResponse = null;
 
                 _logger?.LogTrace(new TaskCanceledException(), "ConnectedState.Run");
             }
 
-            return new DisconnectedState(mResponse.ResponseUri, mWebRequesterFactory, _loggerFactory);
+            return new DisconnectedState(mUri, mWebRequesterFactory, _loggerFactory);
 
         }
     }

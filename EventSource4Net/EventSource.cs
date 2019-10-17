@@ -18,7 +18,7 @@ namespace EventSource4Net
         public event EventHandler<StateChangedEventArgs> StateChanged;
         public event EventHandler<ServerSentEventReceivedEventArgs> EventReceived;
 
-        private readonly IWebRequesterFactory _webRequesterFactory = new WebRequesterFactory();
+        private IWebRequesterFactory _webRequesterFactory;
         private int _timeout = 0;
         public Uri Url { get; private set; }
         //public EventSourceState State { get { return CurrentState.State; } }
@@ -46,32 +46,33 @@ namespace EventSource4Net
 
         public EventSource(Uri url, int timeout)
         {
-            Initialize(url, timeout, null);
+            Initialize(url, timeout, null, null);
         }
 
         public EventSource(Uri url, int timeout, ILoggerFactory loggerFactory)
         {
-            Initialize(url, timeout, loggerFactory);
+            Initialize(url, timeout, null, loggerFactory);
         }
 
         protected EventSource(Uri url, IWebRequesterFactory factory)
         {
-            _webRequesterFactory = factory;
-            Initialize(url, 0, null);
+            Initialize(url, 0, factory, null);
         }
 
-        /// <summary>
-        /// Constructor for testing purposes
-        /// </summary>
-        /// <param name="factory">The factory that generates the WebRequester to use.</param>
-        protected EventSource(Uri url, IWebRequesterFactory factory, ILoggerFactory loggerFactory)
-        {
-            _webRequesterFactory = factory;
-            Initialize(url, 0, loggerFactory);
-        }
 
-        private void Initialize(Uri url, int timeout, ILoggerFactory loggerFactory)
+        ///// <summary>
+        ///// Constructor for testing purposes
+        ///// </summary>
+        ///// <param name="factory">The factory that generates the WebRequester to use.</param>
+        //protected EventSource(Uri url, IWebRequesterFactory factory, ILoggerFactory loggerFactory)
+        //{
+        //    _webRequesterFactory = factory;
+        //    Initialize(url, 0, loggerFactory);
+        //}
+
+        private void Initialize(Uri url, int timeout, IWebRequesterFactory factory, ILoggerFactory loggerFactory)
         {
+            _webRequesterFactory = factory ?? new WebRequesterFactory();
             _timeout = timeout;
             Url = url;
             _loggerFactory = loggerFactory;
@@ -92,10 +93,6 @@ namespace EventSource4Net
             {
                 if (CurrentState.State == EventSourceState.CLOSED)
                 {
-                    //mStopToken = stopToken;
-                    //mTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
-                    //await Run().ConfigureAwait(false);
-
                     while (!stopToken.IsCancellationRequested)
                     {
                         await Run().ConfigureAwait(false);
@@ -109,15 +106,7 @@ namespace EventSource4Net
             if (mStopToken.IsCancellationRequested && CurrentState.State == EventSourceState.CLOSED)
                 return;
 
-            //mCurrentState.Run(this.OnEventReceived, mTokenSource.Token).ContinueWith(cs =>
-            //{
-            //    CurrentState = cs.Result;
-            //    await Run();
-            //});
-
             CurrentState = await mCurrentState.Run(this.OnEventReceived, mStopToken).ConfigureAwait(false);
-
-            //await Run().ConfigureAwait(false);
         }
 
         protected void OnEventReceived(ServerSentEvent sse)
